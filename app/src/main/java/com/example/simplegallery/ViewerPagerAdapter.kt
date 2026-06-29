@@ -3,11 +3,13 @@ package com.example.simplegallery
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
 import com.example.simplegallery.databinding.PageMediaBinding
 
 /** Страница ViewPager2: фото через Glide с зумом, видео через VideoView с кнопкой play/pause и seekbar. */
@@ -34,10 +36,18 @@ class ViewerPagerAdapter(
     override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
         val item = items[position]
         if (item.isVideo) {
-            holder.binding.image.visibility = View.GONE
-            holder.binding.video.visibility = View.VISIBLE
+            holder.binding.video.visibility = View.GONE
             holder.binding.seekBar.progress = 0
             showControls(holder)
+
+            // Показываем thumbnail пока видео не запущено
+            holder.binding.image.visibility = View.VISIBLE
+            holder.binding.image.reset()
+            Glide.with(holder.binding.image)
+                .asBitmap()
+                .load(item.uri)
+                .apply(RequestOptions.frameOf(0))
+                .into(holder.binding.image)
 
             holder.binding.video.setVideoURI(item.uri)
 
@@ -51,7 +61,19 @@ class ViewerPagerAdapter(
                 cancelProgress(holder)
                 holder.binding.playPauseButton.setImageResource(R.drawable.ic_play)
                 holder.binding.seekBar.progress = holder.binding.seekBar.max
+                holder.binding.video.visibility = View.GONE
+                holder.binding.image.visibility = View.VISIBLE
                 showControls(holder)
+            }
+
+            holder.binding.seekBar.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                }
+                false
             }
 
             holder.binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -79,6 +101,8 @@ class ViewerPagerAdapter(
                     cancelProgress(holder)
                     holder.binding.playPauseButton.setImageResource(R.drawable.ic_play)
                 } else {
+                    holder.binding.image.visibility = View.GONE
+                    holder.binding.video.visibility = View.VISIBLE
                     holder.binding.video.start()
                     holder.binding.seekBar.max = holder.binding.video.duration
                     holder.binding.playPauseButton.setImageResource(R.drawable.ic_pause)
@@ -87,7 +111,7 @@ class ViewerPagerAdapter(
                 }
             }
 
-            holder.binding.video.setOnClickListener {
+            holder.binding.root.setOnClickListener {
                 cancelHide(holder)
                 if (holder.binding.playPauseButton.visibility == View.VISIBLE) {
                     if (holder.binding.video.isPlaying) fadeOutControls(holder)
@@ -97,6 +121,7 @@ class ViewerPagerAdapter(
                 }
             }
         } else {
+            holder.binding.root.setOnClickListener(null)
             holder.binding.video.visibility = View.GONE
             holder.binding.playPauseButton.visibility = View.GONE
             holder.binding.seekBar.visibility = View.GONE
