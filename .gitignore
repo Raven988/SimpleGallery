@@ -1,0 +1,23 @@
+# Build outputs
+/app/build/
+/build/
+
+# Gradle
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Local config (machine-specific SDK path)
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# APK
+*.apk
+
+# Claude Code local settings
+.claude/
+
+# OS
+.DS_Store
