@@ -194,9 +194,9 @@ class AlbumsActivity : AppCompatActivity() {
         val adapter = object : ArrayAdapter<String>(this, 0, labels) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val tv = (convertView as? TextView) ?: TextView(context)
-                tv.text = "${labels[position]} ▾"
+                tv.text = labels[position]
                 tv.setTextColor(Color.WHITE)
-                tv.textSize = 15f
+                tv.textSize = 20f
                 tv.setTypeface(null, Typeface.NORMAL)
                 tv.compoundDrawablePadding = 0
                 tv.setPaddingRelative((8 * dp).toInt(), 0, (8 * dp).toInt(), 0)
