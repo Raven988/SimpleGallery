@@ -72,6 +72,7 @@ class AlbumsActivity : AppCompatActivity() {
         binding = ActivityAlbumsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         albumAdapter = AlbumAdapter(albums) { album ->
             startActivity(Intent(this, MainActivity::class.java).apply {
@@ -193,15 +194,13 @@ class AlbumsActivity : AppCompatActivity() {
         val adapter = object : ArrayAdapter<String>(this, 0, labels) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val tv = (convertView as? TextView) ?: TextView(context)
-                tv.text = labels[position]
+                tv.text = "${labels[position]} ▾"
                 tv.setTextColor(Color.WHITE)
                 tv.textSize = 15f
                 tv.setTypeface(null, Typeface.NORMAL)
-                tv.compoundDrawablePadding = (2 * dp).toInt()
-                tv.setPaddingRelative((8 * dp).toInt(), 0, (4 * dp).toInt(), 0)
-                tv.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                    0, 0, R.drawable.ic_arrow_drop_down, 0
-                )
+                tv.compoundDrawablePadding = 0
+                tv.setPaddingRelative((8 * dp).toInt(), 0, (8 * dp).toInt(), 0)
+                tv.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, 0, 0)
                 return tv
             }
 
