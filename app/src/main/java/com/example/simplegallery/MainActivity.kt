@@ -23,6 +23,9 @@ class MainActivity : AppCompatActivity() {
     private val items = ArrayList<MediaItem>()
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private var bucketId: Long = -1L
+    private var mediaType: Int = -1
+    private var dateFrom: Long = -1L
+    private var dateTo: Long = -1L
     private lateinit var adapter: MediaAdapter
     private var albumTitle = ""
 
@@ -44,6 +47,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         bucketId = intent.getLongExtra(EXTRA_BUCKET_ID, -1L)
+        mediaType = intent.getIntExtra(EXTRA_MEDIA_TYPE, -1)
+        dateFrom = intent.getLongExtra(EXTRA_DATE_FROM, -1L)
+        dateTo = intent.getLongExtra(EXTRA_DATE_TO, -1L)
         albumTitle = intent.getStringExtra(EXTRA_BUCKET_NAME) ?: getString(R.string.app_name)
 
         setSupportActionBar(binding.toolbar)
@@ -147,7 +153,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadMedia() {
         ioExecutor.execute {
-            val loaded = MediaRepository.queryMedia(this, if (bucketId == -1L) null else bucketId)
+            val loaded = MediaRepository.queryMedia(
+                this,
+                if (bucketId == -1L) null else bucketId,
+                if (mediaType == -1) null else mediaType,
+                if (dateFrom == -1L) null else dateFrom,
+                if (dateTo == -1L) null else dateTo
+            )
             runOnUiThread {
                 items.clear()
                 items.addAll(loaded)
@@ -167,5 +179,8 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "Gallery"
         const val EXTRA_BUCKET_ID = "extra_bucket_id"
         const val EXTRA_BUCKET_NAME = "extra_bucket_name"
+        const val EXTRA_MEDIA_TYPE = "extra_media_type"
+        const val EXTRA_DATE_FROM = "extra_date_from"
+        const val EXTRA_DATE_TO = "extra_date_to"
     }
 }

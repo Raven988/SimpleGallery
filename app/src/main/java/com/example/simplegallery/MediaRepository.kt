@@ -73,35 +73,57 @@ object MediaRepository {
         return albums.values.toList()
     }
 
-    /** Медиа конкретной папки (если bucketId == null — все фото и видео подряд). */
-    fun queryMedia(context: Context, bucketId: Long?): List<MediaItem> {
+    /**
+     * Медиа одной папки или всё сразу (bucketId == null).
+     * mediaType: MEDIA_TYPE_IMAGE / MEDIA_TYPE_VIDEO / null — оба типа.
+     * dateFrom / dateTo — фильтр по DATE_ADDED (секунды Unix, включительно).
+     */
+    fun queryMedia(
+        context: Context,
+        bucketId: Long?,
+        mediaType: Int? = null,
+        dateFrom: Long? = null,
+        dateTo: Long? = null
+    ): List<MediaItem> {
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
             MediaStore.Files.FileColumns.MEDIA_TYPE,
             MediaStore.Files.FileColumns.DATE_ADDED
         )
-        val selection: String
-        val args: Array<String>
-        if (bucketId == null) {
-            selection = SELECTION
-            args = selectionArgs
-        } else {
-            selection = "(${SELECTION}) AND ${MediaStore.Files.FileColumns.BUCKET_ID} = ?"
-            args = selectionArgs + bucketId.toString()
-        }
-        val sortOrder = "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
 
+        val selParts = mutableListOf<String>()
+        val argsList = mutableListOf<String>()
+
+        if (mediaType != null) {
+            selParts.add("${MediaStore.Files.FileColumns.MEDIA_TYPE} = ?")
+            argsList.add(mediaType.toString())
+        } else {
+            selParts.add("($SELECTION)")
+            argsList.addAll(selectionArgs)
+        }
+        if (bucketId != null) {
+            selParts.add("${MediaStore.Files.FileColumns.BUCKET_ID} = ?")
+            argsList.add(bucketId.toString())
+        }
+        if (dateFrom != null) {
+            selParts.add("${MediaStore.Files.FileColumns.DATE_ADDED} >= ?")
+            argsList.add(dateFrom.toString())
+        }
+        if (dateTo != null) {
+            selParts.add("${MediaStore.Files.FileColumns.DATE_ADDED} <= ?")
+            argsList.add(dateTo.toString())
+        }
+
+        val sortOrder = "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
         val result = ArrayList<MediaItem>()
         context.contentResolver
-            .query(collection, projection, selection, args, sortOrder)
+            .query(collection, projection, selParts.joinToString(" AND "), argsList.toTypedArray(), sortOrder)
             ?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-                val typeCol =
-                    cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE)
+                val typeCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
-                    val isVideo = cursor.getInt(typeCol) ==
-                        MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                    val isVideo = cursor.getInt(typeCol) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
                     val contentUri = if (isVideo)
                         MediaStore.Video.Media.EXTERNAL_CONTENT_URI
                     else
@@ -110,5 +132,66 @@ object MediaRepository {
                 }
             }
         return result
+    }
+
+    /** Группировка всех медиафайлов по месяцу/году. */
+    fun queryMediaGroupedByDate(context: Context): List<DateGroup> {
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.Files.FileColumns.DATE_ADDED
+        )
+        val sortOrder = "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
+
+        val groups = LinkedHashMap<String, DateGroup>()
+        val cal = java.util.Calendar.getInstance()
+
+        context.contentResolver
+            .query(collection, projection, SELECTION, selectionArgs, sortOrder)
+            ?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
+                val typeCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE)
+                val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)
+                while (cursor.moveToNext()) {
+                    val dateSec = cursor.getLong(dateCol)
+                    cal.timeInMillis = dateSec * 1000L
+                    val year = cal.get(java.util.Calendar.YEAR)
+                    val month = cal.get(java.util.Calendar.MONTH)
+                    val key = "$year-$month"
+
+                    val existing = groups[key]
+                    if (existing == null) {
+                        val id = cursor.getLong(idCol)
+                        val isVideo = cursor.getInt(typeCol) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                        val coverUri = ContentUris.withAppendedId(
+                            if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id
+                        )
+                        cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        cal.set(java.util.Calendar.MINUTE, 0)
+                        cal.set(java.util.Calendar.SECOND, 0)
+                        cal.set(java.util.Calendar.MILLISECOND, 0)
+                        val dateFrom = cal.timeInMillis / 1000L
+                        cal.set(java.util.Calendar.DAY_OF_MONTH, cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH))
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                        cal.set(java.util.Calendar.MINUTE, 59)
+                        cal.set(java.util.Calendar.SECOND, 59)
+                        val dateTo = cal.timeInMillis / 1000L
+                        groups[key] = DateGroup(monthYearLabel(month, year), coverUri, 1, dateFrom, dateTo)
+                    } else {
+                        groups[key] = existing.copy(count = existing.count + 1)
+                    }
+                }
+            }
+        return groups.values.toList()
+    }
+
+    private fun monthYearLabel(month: Int, year: Int): String {
+        val names = arrayOf(
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+        )
+        return "${names[month]} $year"
     }
 }

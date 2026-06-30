@@ -44,19 +44,45 @@ Single-module Android app (Kotlin, minSdk 24, targetSdk 34, ViewBinding, no Jetp
 
 ### Key classes
 
-- **`AlbumsActivity`** — entry point, requests media permissions + MANAGE_MEDIA, shows album grid
-- **`MainActivity`** — grid of thumbnails for one album, handles multi-select + bulk delete
+- **`AlbumsActivity`** — entry point, requests media permissions + MANAGE_MEDIA. Toolbar has a dropdown spinner (right side) to switch display modes: Все / Альбомы / По дате / Фото / Видео. Flat modes (Все/Фото/Видео) show a 3-col media grid with multi-select + bulk delete directly in this activity. Group modes (Альбомы/По дате) show a 2-col card grid and navigate to `MainActivity` on tap.
+- **`MainActivity`** — grid of thumbnails for one album or date group, handles multi-select + bulk delete
 - **`ViewerActivity`** — fullscreen pager (ViewPager2), starts in immersive mode (bars hidden), swipe from edge to show bars transiently
 - **`MediaRepository`** — all MediaStore queries; images use `MediaStore.Images.Media.EXTERNAL_CONTENT_URI`, videos use `MediaStore.Video.Media.EXTERNAL_CONTENT_URI` (important: NOT the generic Files URI — using Files URI breaks deletion)
-- **`MediaAdapter`** — RecyclerView adapter for the thumbnail grid, supports selection mode (long-press to enter, tap to toggle, onSelectionChanged callback)
+- **`MediaAdapter`** — RecyclerView adapter for the thumbnail grid, supports selection mode (long-press to enter, tap to toggle, onSelectionChanged callback); `selectionEnabled = false` disables long-press selection (used in AlbumsActivity... currently unused since all modes support selection)
+- **`AlbumAdapter`** — 2-col grid of album cards (cover image, name, count)
+- **`DateGroupAdapter`** — 2-col grid of date group cards, reuses `item_album.xml`; groups media by month/year
 - **`ViewerPagerAdapter`** — RecyclerView.Adapter for ViewPager2 pages; photos use ZoomageView (pinch-zoom), videos use VideoView with custom play/pause button + seekbar; controls auto-hide after 2.5s during playback
+
+### Display modes (AlbumsActivity spinner)
+
+| Mode | Layout | Content | Tap action |
+|---|---|---|---|
+| Все | 3-col grid | All photos + videos | Open ViewerActivity |
+| Альбомы | 2-col cards | Folders (buckets) | Open MainActivity |
+| По дате | 2-col cards | Month/year groups | Open MainActivity with date filter |
+| Фото | 3-col grid | Images only | Open ViewerActivity |
+| Видео | 3-col grid | Videos only | Open ViewerActivity |
 
 ### Deletion flow
 
 - **Android 11+ (API 30+):** `MediaStore.createDeleteRequest` — system dialog appears (unavoidable unless MANAGE_MEDIA is granted)
 - **Android 12+ with MANAGE_MEDIA:** direct `contentResolver.delete()`, no dialog
 - **Android <11:** direct `contentResolver.delete()` with `WRITE_EXTERNAL_STORAGE` permission
-- Deletion is only accessible via multi-select in `MainActivity` (not in the viewer)
+- Deletion is accessible via multi-select in `MainActivity` (album/date group view) and in `AlbumsActivity` flat modes (Все/Фото/Видео)
+
+### MediaRepository queries
+
+- `queryAlbums(context)` — groups all media by bucket (folder), returns `List<Album>`
+- `queryMedia(context, bucketId, mediaType?, dateFrom?, dateTo?)` — flat media list; `bucketId=null` = all media; `mediaType` = `MEDIA_TYPE_IMAGE`/`MEDIA_TYPE_VIDEO`/null; date range in Unix seconds
+- `queryMediaGroupedByDate(context)` — groups all media by month/year, returns `List<DateGroup>` with `dateFrom`/`dateTo` boundaries for use as `queryMedia` filter
+
+### Passing filters to MainActivity
+
+`MainActivity` reads these extras from the launching intent:
+- `EXTRA_BUCKET_ID` (Long, -1 = all)
+- `EXTRA_BUCKET_NAME` (String, shown as toolbar title)
+- `EXTRA_MEDIA_TYPE` (Int, -1 = both; use `MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE/VIDEO`)
+- `EXTRA_DATE_FROM` / `EXTRA_DATE_TO` (Long, Unix seconds, -1 = no filter)
 
 ### Permissions
 

@@ -12,7 +12,8 @@ class MediaAdapter(
     private val items: List<MediaItem>,
     private val onClick: (position: Int) -> Unit,
     private val onLongClick: (position: Int) -> Unit,
-    private val onSelectionChanged: (count: Int) -> Unit
+    private val onSelectionChanged: (count: Int) -> Unit,
+    private val selectionEnabled: Boolean = true
 ) : RecyclerView.Adapter<MediaAdapter.MediaViewHolder>() {
 
     val selectedPositions = mutableSetOf<Int>()
@@ -53,9 +54,9 @@ class MediaAdapter(
         holder.binding.root.setOnLongClickListener {
             val pos = holder.bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return@setOnLongClickListener true
-            if (!isSelectionMode) {
+            if (!isSelectionMode && selectionEnabled) {
                 enterSelectionMode(pos)
-            } else {
+            } else if (isSelectionMode) {
                 onLongClick(pos)
             }
             true

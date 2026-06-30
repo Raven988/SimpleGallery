@@ -15,4 +15,9 @@
     <string name="settings">Настройки</string>
     <string name="later">Позже</string>
     <string name="manage_media_rationale">Для удаления файлов без системного запроса разрешите приложению управление медиафайлами.</string>
+    <string name="mode_albums">Альбомы</string>
+    <string name="mode_by_date">По дате</string>
+    <string name="mode_all">Все</string>
+    <string name="mode_photos">Фото</string>
+    <string name="mode_videos">Видео</string>
 </resources>
